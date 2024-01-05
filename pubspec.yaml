@@ -50,6 +50,8 @@ dependencies:
   flutter_google_map_polyline_point: ^0.0.1
   geocoding: ^2.1.1
   geocoding_android: ^2.0.0
+  image: ^3.0.1
+  firebase_messaging: ^14.7.10
 
 
 dev_dependencies:
@@ -78,7 +80,8 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/images/
+    - assets/busiconmarker.png
+    - assets/bus_stop.png
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

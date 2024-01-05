@@ -1,9 +1,11 @@
 import 'dart:async';
-
+import 'dart:ui';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_google_map_polyline_point/flutter_polyline_point.dart';
 import 'package:flutter_google_map_polyline_point/point_lat_lng.dart';
 import 'package:geolocator/geolocator.dart';
@@ -163,16 +165,17 @@ class MyMap extends StatefulWidget {
 }
 
 class _MyMapState extends State<MyMap> {
-  double _totalDistanceToDestination = 0;
+  BitmapDescriptor markerIcon = BitmapDescriptor.defaultMarker;
+  BitmapDescriptor destinationIcon = BitmapDescriptor.defaultMarker;
   GoogleMapController? _controller;
-  Set<Marker> _markers = Set<Marker>();
+  Set<Marker> _markers = {};
   PolylinePoints polylinePoints = PolylinePoints();
   List<Polyline> _polylines = [];
-  Polyline _polyline = Polyline(polylineId: PolylineId("default"));
   List<LatLng> destinations = [
-    LatLng(2.310126081637331, 102.31851292024078), // PPP
-    LatLng(2.3082363160094994, 102.31923272960174), // FTMK
-    LatLng(2.3101113649921374, 102.31445255130075), // Satria
+    LatLng(2.3087512637914207, 102.3191728618355),
+    LatLng(2.3112621141142173, 102.31818409888656),
+    LatLng(2.3093236407053785, 102.31896097668674),
+    LatLng(2.3088050129260327, 102.32120161895827),
   ];
 
   int currentDestinationIndex = 0;
@@ -183,16 +186,11 @@ class _MyMapState extends State<MyMap> {
   void initState() {
     super.initState();
     _addMarkers();
+    _addUserMarker();
     _getLocation();
     _calculateAllPolylines(); // Calculate all routes initially
     if (userLocation != null && currentDestinationIndex < destinations.length) {
       final destination = destinations[currentDestinationIndex];
-      _totalDistanceToDestination = Geolocator.distanceBetween(
-        userLocation!.latitude!,
-        userLocation!.longitude!,
-        destination.latitude,
-        destination.longitude,
-      );
     }
   }
 
@@ -210,7 +208,7 @@ class _MyMapState extends State<MyMap> {
             polylineId: PolylineId("route$i"),
             points: result.points.map((point) =>
                 LatLng(point.latitude, point.longitude)).toList(),
-            color: Colors.blue, // Adjust color as needed
+            color: Colors.indigo.withOpacity(0.9), // Adjust color as needed
             width: 4,
           ));
         });
@@ -218,18 +216,21 @@ class _MyMapState extends State<MyMap> {
     }
   }
 
-  void _addMarkers() {
+  Future<void> _addMarkers() async {
+    // Obtain the BitmapDescriptor by awaiting the completion of fromAssetImage
+    BitmapDescriptor destinationIcon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(),
+      "assets/bus_stop.png",
+    );
+
     setState(() {
       _markers = destinations
           .map(
-            (latLng) =>
-            Marker(
-              markerId: MarkerId(latLng.toString()),
-              position: latLng,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueMagenta,
-              ),
-            ),
+            (latLng) => Marker(
+          markerId: MarkerId(latLng.toString()),
+          position: latLng,
+          icon: destinationIcon,
+        ),
       )
           .toSet();
     });
@@ -251,16 +252,17 @@ class _MyMapState extends State<MyMap> {
     _calculateAllPolylines();
   }
 
+
+
   void _addUserMarker() async {
     if (userLocation != null) {
       try {
-        // Get the current user's UID
         String uid = FirebaseAuth.instance.currentUser!.uid;
 
         DatabaseReference userRef = FirebaseDatabase.instance
             .reference()
             .child('location')
-            .child(uid) // Use the user's UID as the child
+            .child(uid)
             .child('bus_capacity');
 
         Completer<DataSnapshot> completer = Completer<DataSnapshot>();
@@ -274,19 +276,21 @@ class _MyMapState extends State<MyMap> {
         int? capacity = snapshot.value as int?;
         capacity ??= 0;
 
-        setState(() async {
+        // Obtain the BitmapDescriptor by awaiting the completion of fromAssetImage
+        BitmapDescriptor userIcon = await BitmapDescriptor.fromAssetImage(
+          const ImageConfiguration(),"assets/busiconmarker.png");
+
+        setState(() {
           _markers.add(
             Marker(
-                markerId: MarkerId('user'),
-                position: LatLng(userLocation!.latitude!, userLocation!.longitude!),
-                icon: await BitmapDescriptor.fromAssetImage(
-                ImageConfiguration(devicePixelRatio: 2.5),
-            'assets/images/busiconmarker.png',
-          ),
-          infoWindow: InfoWindow(
-          title: 'User',
-          snippet: 'Capacity: $capacity',
-          ),
+              markerId: MarkerId('user'),
+              position: LatLng(userLocation!.latitude!, userLocation!.longitude!),
+              icon: userIcon, // Use the obtained BitmapDescriptor
+              infoWindow: InfoWindow(
+                title: 'BLW 7273',
+                snippet: 'Capacity: $capacity',
+              ),
+              anchor: Offset(0.5, 0.5),
             ),
           );
         });
@@ -296,12 +300,11 @@ class _MyMapState extends State<MyMap> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Live Bus Tracker'),
+        title: Text('Hop On Campus Live Bus Tracker'),
       ),
       body: GoogleMap(
         mapType: MapType.normal,
