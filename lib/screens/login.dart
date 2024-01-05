@@ -156,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(32),
                                 ),
+
                                 minimumSize: Size(double.infinity, 50),
                               ),
                               onPressed: () {
